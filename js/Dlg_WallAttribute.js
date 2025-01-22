@@ -49,7 +49,13 @@ function WallParamDlgUI(){
 							<el-input v-model="attributeInterface.wall.width.int" placeholder="" @input='WallWidth' v-show="attributeInterface.wall.radio==5"></el-input>
 						</el-radio-group>
 
-						<div class="wall-length-section" style="margin-top: 15px;">
+						<div class="uniformScaling justify-space">
+							<div></div>
+							<el-button onclick="m_ParamWallDlg.OnSplit();">拆分</el-button>
+							<el-button type="primary" onclick="m_ParamWallDlg.Delete()">删除</el-button>
+						</div>
+
+						<div class="wall-length-section" style="margin-top: 15px; border-top: 1px solid #dcdfe6; padding-top: 15px;">
 							<span class="demonstration" style="width: 100px;height: 25px;margin-top: 5px;">墙体长度(mm)</span>
 							<el-input 
 								id="wallLengthInput"
@@ -60,14 +66,12 @@ function WallParamDlgUI(){
 								:disabled="attributeInterface.wall.length.disabled"
 								@input="WallLength">
 							</el-input>
+							<div v-if="attributeInterface.wall.length.error" 
+								 style="color: #f56c6c; font-size: 12px; margin-top: 5px;">
+								{{ attributeInterface.wall.length.error }}
+							</div>
 						</div>
 
-						<div class="uniformScaling justify-space">
-							<div></div>
-							<el-button  onclick="m_ParamWallDlg.OnSplit();">拆分</el-button>
-							<el-button type="primary" onclick="m_ParamWallDlg.Delete()">删除</el-button>
-			
-						</div>
 					<!--	<div class="uniformScaling justify-space">
 							<el-checkbox v-model="header.showLable.check_label" onclick="m_ParamWallDlg.OnShowLabel();">
 								{{ $t("Language.Size")}}</el-checkbox>
@@ -284,13 +288,28 @@ function Dlg_WallAttribute()
 		if (this.mWall == null)
 			return;
 
+		// Input validation
+		let inputLength = Number(int);
+		if (!inputLength || inputLength < 100) {
+			inputLength = 100;  // Minimum 100mm
+			app.attributeInterface.wall.length.int = inputLength;
+		} else if (inputLength > 20000) {
+			inputLength = 20000;  // Maximum 20m
+			app.attributeInterface.wall.length.int = inputLength;
+		}
+
 		// Get current wall vector
 		let dx = this.mWall.m_vEnd.x - this.mWall.m_vStart.x;
 		let dy = this.mWall.m_vEnd.y - this.mWall.m_vStart.y;
 		let currentLength = Math.sqrt(dx * dx + dy * dy);
+		
+		// Prevent division by zero
+		if (currentLength < 0.0001) {
+			currentLength = 0.0001;
+		}
 
 		// Calculate scale factor
-		let newLength = int / 10; // Convert from mm to internal units
+		let newLength = inputLength / 10; // Convert from mm to internal units
 		let scale = newLength / currentLength;
 
 		// Get main wall direction (normalized)
@@ -311,6 +330,11 @@ function Dlg_WallAttribute()
 			let odx = oppositeWall.m_vEnd.x - oppositeWall.m_vStart.x;
 			let ody = oppositeWall.m_vEnd.y - oppositeWall.m_vStart.y;
 			let oCurrentLength = Math.sqrt(odx * odx + ody * ody);
+			
+			// Prevent division by zero
+			if (oCurrentLength < 0.0001) {
+				oCurrentLength = 0.0001;
+			}
 
 			// Get opposite wall direction (normalized)
 			let oppositeWallDir = {
