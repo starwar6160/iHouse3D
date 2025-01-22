@@ -57,7 +57,8 @@ function WallParamDlgUI(){
 								type="number" 
 								placeholder="输入长度"
 								style="width: 120px;"
-								:disabled="attributeInterface.wall.length.disabled">
+								:disabled="attributeInterface.wall.length.disabled"
+								@input="WallLength">
 							</el-input>
 						</div>
 
@@ -185,7 +186,7 @@ function Dlg_WallAttribute()
 		
 		// Update the wall length input
 		app.attributeInterface.wall.length.int = length;
-		app.attributeInterface.wall.length.disabled = true;
+		app.attributeInterface.wall.length.disabled = false; // Enable editing
 		
 		if(wallInt==100 || wallInt==120 || wallInt==200 || wallInt==240){
 			app.attributeInterface.wall.radio=wallInt;
@@ -208,7 +209,33 @@ function Dlg_WallAttribute()
 		//this.mWall.OnMoveWall(this.mWall.mCurMouseX,this.mWall.mCurMouseY);	// 更新门窗宽度
 		render();
    };
-	
+
+	this.length = function(int) {
+		if (this.mWall == null)
+			return;
+
+		// Get current wall vector
+		let dx = this.mWall.m_vEnd.x - this.mWall.m_vStart.x;
+		let dy = this.mWall.m_vEnd.y - this.mWall.m_vStart.y;
+		let currentLength = Math.sqrt(dx * dx + dy * dy);
+
+		// Calculate scale factor
+		let newLength = int / 10; // Convert from mm to internal units
+		let scale = newLength / currentLength;
+
+		// Update end point while keeping start point fixed
+		this.mWall.m_vEnd.x = this.mWall.m_vStart.x + dx * scale;
+		this.mWall.m_vEnd.y = this.mWall.m_vStart.y + dy * scale;
+
+		// Update wall geometry and re-render
+		this.mWall.OnRender();
+		render();
+
+		// Trigger update of any connected walls
+		if(this.mWall.UpdateWall)
+			this.mWall.UpdateWall();
+	};
+
 	this.OnSplit = function()
 	{
 		if(this.mWall ==null)

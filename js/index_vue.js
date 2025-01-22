@@ -708,6 +708,12 @@
 
 					m_ParamWallDlg.width(value);
 				},
+				WallLength(value) {
+					if (m_ParamWallDlg == undefined)
+						return false;
+
+					m_ParamWallDlg.length(value);
+				},
 				windowLenght(value) {
 					if (m_ParamWinDlg == undefined)
 						return false;
