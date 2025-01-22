@@ -53,11 +53,11 @@ function WallParamDlgUI(){
 							<span class="demonstration" style="width: 100px;height: 25px;margin-top: 5px;">墙体长度(mm)</span>
 							<el-input 
 								id="wallLengthInput"
-								v-model="attributeInterface.wall.length" 
+								v-model="attributeInterface.wall.length.int" 
 								type="number" 
 								placeholder="输入长度"
 								style="width: 120px;"
-								:disabled="true">
+								:disabled="attributeInterface.wall.length.disabled">
 							</el-input>
 						</div>
 
@@ -170,21 +170,31 @@ function Dlg_WallAttribute()
 	this.Show = function(tObj)
 	{
 		this.mWall = tObj;
-		let wallInt=parseInt(this.mWall.m_fWidth*10);
-		app.attributeInterface.wall.width.int=wallInt;
+		let wallInt = parseInt(this.mWall.m_fWidth*10);
+		app.attributeInterface.wall.width.int = wallInt;
+		
+		// Calculate wall length using start and end points
+		let startX = this.mWall.m_vStart.x;
+		let startY = this.mWall.m_vStart.y;
+		let endX = this.mWall.m_vEnd.x;
+		let endY = this.mWall.m_vEnd.y;
+		
+		// Calculate length using distance formula and convert to millimeters
+		let length = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) * 10;
+		length = Math.round(length); // Round to nearest millimeter
+		
+		// Update the wall length input
+		app.attributeInterface.wall.length.int = length;
+		app.attributeInterface.wall.length.disabled = true;
+		
 		if(wallInt==100 || wallInt==120 || wallInt==200 || wallInt==240){
 			app.attributeInterface.wall.radio=wallInt;
 		}else{
 			app.attributeInterface.wall.radio=5;
 		}
 		$('.WallDlg').show();
-	//	this.ShowBar();
-		
-		//app.header.showLable.check_label = this.mWall.m_bShowLabel;
-		// 循环所有地面轮廓，拾取2D标注
-		//this.mLabel = mHouseClass.mFloorClass.OnPick2D_Label(g_mouseX,g_mouseY);
 	};
-
+	
 	this.width = function(int){
    		if (this.mWall.m_fWidth==null)
 			return;

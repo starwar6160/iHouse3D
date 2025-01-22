@@ -269,7 +269,13 @@
 							},
 						},						
 						wall: {
-							length: {int: 0,min: 0,max: 9999,disabled: false,step: ''},
+							length: {
+								int: 0,
+								min: 0,
+								max: 9999,
+								disabled: true,
+								step: ''
+							},
 							width: {
 								int: 200,
 								min: 100,
