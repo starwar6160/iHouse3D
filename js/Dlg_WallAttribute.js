@@ -210,6 +210,76 @@ function Dlg_WallAttribute()
 		render();
    };
 
+	this.findOppositeWall = function(wall) {
+		if (!wall) return null;
+		
+		// Get wall vector
+		let wallVec = {
+			x: wall.m_vEnd.x - wall.m_vStart.x,
+			y: wall.m_vEnd.y - wall.m_vStart.y
+		};
+		let wallLength = Math.sqrt(wallVec.x * wallVec.x + wallVec.y * wallVec.y);
+		
+		// Normalize wall vector
+		wallVec.x /= wallLength;
+		wallVec.y /= wallLength;
+		
+		// Wall center point
+		let wallCenter = {
+			x: (wall.m_vStart.x + wall.m_vEnd.x) / 2,
+			y: (wall.m_vStart.y + wall.m_vEnd.y) / 2
+		};
+		
+		let oppositeWall = null;
+		let minDistance = Number.MAX_VALUE;
+		
+		// Search through all walls
+		for (let i = 0; i < mHouseClass.mWallClass.mWallArray.length; i++) {
+			let testWall = mHouseClass.mWallClass.mWallArray[i];
+			if (testWall === wall) continue;
+			
+			// Get test wall vector
+			let testVec = {
+				x: testWall.m_vEnd.x - testWall.m_vStart.x,
+				y: testWall.m_vEnd.y - testWall.m_vStart.y
+			};
+			let testLength = Math.sqrt(testVec.x * testVec.x + testVec.y * testVec.y);
+			
+			// Normalize test vector
+			testVec.x /= testLength;
+			testVec.y /= testLength;
+			
+			// Test wall center point
+			let testCenter = {
+				x: (testWall.m_vStart.x + testWall.m_vEnd.x) / 2,
+				y: (testWall.m_vStart.y + testWall.m_vEnd.y) / 2
+			};
+			
+			// Check if walls are parallel (dot product close to -1 or 1)
+			let dot = wallVec.x * testVec.x + wallVec.y * testVec.y;
+			if (Math.abs(Math.abs(dot) - 1) < 0.1) {
+				// Calculate perpendicular distance between walls
+				let dx = testCenter.x - wallCenter.x;
+				let dy = testCenter.y - wallCenter.y;
+				// Project displacement onto perpendicular direction
+				let perpX = -wallVec.y;  // Perpendicular vector
+				let perpY = wallVec.x;
+				let perpDist = Math.abs(dx * perpX + dy * perpY);
+				
+				// Check if walls are roughly aligned
+				let parallelDist = Math.abs(dx * wallVec.x + dy * wallVec.y);
+				if (parallelDist < wallLength * 0.5) {  // Walls should be somewhat aligned
+					if (perpDist < minDistance && perpDist > 0.1) {
+						minDistance = perpDist;
+						oppositeWall = testWall;
+					}
+				}
+			}
+		}
+		
+		return oppositeWall;
+	};
+
 	this.length = function(int) {
 		if (this.mWall == null)
 			return;
@@ -223,17 +293,60 @@ function Dlg_WallAttribute()
 		let newLength = int / 10; // Convert from mm to internal units
 		let scale = newLength / currentLength;
 
-		// Update end point while keeping start point fixed
+		// Get main wall direction (normalized)
+		let mainWallDir = {
+			x: dx / currentLength,
+			y: dy / currentLength
+		};
+
+		// Update main wall
 		this.mWall.m_vEnd.x = this.mWall.m_vStart.x + dx * scale;
 		this.mWall.m_vEnd.y = this.mWall.m_vStart.y + dy * scale;
-
-		// Update wall geometry and re-render
 		this.mWall.OnRender();
-		render();
 
-		// Trigger update of any connected walls
-		if(this.mWall.UpdateWall)
-			this.mWall.UpdateWall();
+		// Find and update opposite wall
+		let oppositeWall = this.findOppositeWall(this.mWall);
+		if (oppositeWall) {
+			// Get opposite wall vector
+			let odx = oppositeWall.m_vEnd.x - oppositeWall.m_vStart.x;
+			let ody = oppositeWall.m_vEnd.y - oppositeWall.m_vStart.y;
+			let oCurrentLength = Math.sqrt(odx * odx + ody * ody);
+
+			// Get opposite wall direction (normalized)
+			let oppositeWallDir = {
+				x: odx / oCurrentLength,
+				y: ody / oCurrentLength
+			};
+
+			// Check if walls are pointing in the same direction (dot product > 0)
+			let dot = mainWallDir.x * oppositeWallDir.x + mainWallDir.y * oppositeWallDir.y;
+			
+			// If walls are pointing in opposite directions, flip the opposite wall's start/end
+			if (dot < 0) {
+				// Swap start and end points
+				let tempX = oppositeWall.m_vStart.x;
+				let tempY = oppositeWall.m_vStart.y;
+				oppositeWall.m_vStart.x = oppositeWall.m_vEnd.x;
+				oppositeWall.m_vStart.y = oppositeWall.m_vEnd.y;
+				oppositeWall.m_vEnd.x = tempX;
+				oppositeWall.m_vEnd.y = tempY;
+				
+				// Recalculate vectors after swap
+				odx = oppositeWall.m_vEnd.x - oppositeWall.m_vStart.x;
+				ody = oppositeWall.m_vEnd.y - oppositeWall.m_vStart.y;
+				oCurrentLength = Math.sqrt(odx * odx + ody * ody);
+			}
+
+			// Update opposite wall to match new length
+			let oScale = newLength / oCurrentLength;
+			oppositeWall.m_vEnd.x = oppositeWall.m_vStart.x + odx * oScale;
+			oppositeWall.m_vEnd.y = oppositeWall.m_vStart.y + ody * oScale;
+			oppositeWall.OnRender();
+		}
+
+		// Update scene and trigger wall updates
+		render();
+		mHouseClass.mWallClass.OnUpdateAllWall();
 	};
 
 	this.OnSplit = function()
