@@ -49,23 +49,17 @@ function WallParamDlgUI(){
 							<el-input v-model="attributeInterface.wall.width.int" placeholder="" @input='WallWidth' v-show="attributeInterface.wall.radio==5"></el-input>
 						</el-radio-group>
 
-						<!-- <div class="listSlider">
-							厚度
-							<span class="demonstration">{{ $t("Language.Thickness")}}</span>
-							<div class="sliderBlock" style="width:130px">
-								<el-slider v-model="attributeInterface.wall.width.int"
-									:min="attributeInterface.wall.width.min" :max="attributeInterface.wall.width.max"
-									:disabled="attributeInterface.wall.width.disabled" @input='WallWidth'></el-slider>
-							</div>
-							<div class="sliderInputNum">
-								<el-input-number v-model="attributeInterface.wall.width.int" controls-position="right"
-									size="mini" :min="attributeInterface.wall.width.min"
-									:max="attributeInterface.wall.width.max"
-									:disabled="attributeInterface.wall.width.disabled" @input='WallWidth'></el-input-number>
-							</div>
-							<span class="demonstration">mm</span>
-						</div> -->
-
+						<div class="wall-length-section" style="margin-top: 15px;">
+							<span class="demonstration" style="width: 100px;height: 25px;margin-top: 5px;">墙体长度(mm)</span>
+							<el-input 
+								id="wallLengthInput"
+								v-model="attributeInterface.wall.length" 
+								type="number" 
+								placeholder="输入长度"
+								style="width: 120px;"
+								:disabled="true">
+							</el-input>
+						</div>
 
 						<div class="uniformScaling justify-space">
 							<div></div>
