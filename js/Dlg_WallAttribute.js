@@ -290,12 +290,14 @@ function Dlg_WallAttribute()
 
 		// Input validation
 		let inputLength = Number(int);
-		if (!inputLength || inputLength < 100) {
-			inputLength = 100;  // Minimum 100mm
+		if (!inputLength || inputLength <= 0) {
+			inputLength = 1;  // Minimum 1mm
 			app.attributeInterface.wall.length.int = inputLength;
-		} else if (inputLength > 20000) {
-			inputLength = 20000;  // Maximum 20m
+			mHouseClass.mLanguage.ShowMessageBox("墙长度不能小于1mm，已自动调整为1mm");
+		} else if (inputLength >= 90000) {
+			inputLength = 89999;  // Maximum 89999mm
 			app.attributeInterface.wall.length.int = inputLength;
+			mHouseClass.mLanguage.ShowMessageBox("墙长度不能大于89999mm，已自动调整为89999mm");
 		}
 
 		// Get current wall vector
