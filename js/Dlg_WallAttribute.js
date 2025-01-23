@@ -284,10 +284,13 @@ function Dlg_WallAttribute()
 
 		// Input validation
 		let inputLength = Number(int);
-		if (!inputLength || inputLength <= 0) {
-			inputLength = 1;
+		const MIN_WALL_LENGTH = 100; // Minimum wall length in mm
+		
+		if (isNaN(inputLength) || inputLength < MIN_WALL_LENGTH) {
+			inputLength = MIN_WALL_LENGTH; // Set to minimum allowed length
 			app.attributeInterface.wall.length.int = inputLength;
-			mHouseClass.mLanguage.ShowMessageBox("墙长度不能小于1mm，已自动调整为1mm");
+			mHouseClass.mLanguage.ShowMessageBox(`墙长度不能小于${MIN_WALL_LENGTH}mm，已自动调整为${MIN_WALL_LENGTH}mm`);
+			return; // Return early to prevent processing invalid length
 		} else if (inputLength >= 90000) {
 			inputLength = 89999;
 			app.attributeInterface.wall.length.int = inputLength;
@@ -302,13 +305,13 @@ function Dlg_WallAttribute()
 		console.log("Current wall length:", currentLength);
 		console.log("Target length (internal units):", inputLength / 10);
 
-		// Prevent division by zero
-		if (currentLength < 0.0001) {
-			currentLength = 0.0001;
+		// Prevent division by zero and ensure minimum length
+		if (currentLength < MIN_WALL_LENGTH/10) { // Convert mm to internal units
+			currentLength = MIN_WALL_LENGTH/10;
 		}
 
 		// Calculate new length and change
-		let newLength = inputLength / 10; // Convert from mm to internal units
+		let newLength = Math.max(inputLength / 10, MIN_WALL_LENGTH/10); // Convert from mm to internal units, minimum MIN_WALL_LENGTH/10
 		let lengthChange = newLength - currentLength;
 
 		// Get main wall direction (normalized)
@@ -324,7 +327,7 @@ function Dlg_WallAttribute()
 		let originalEndX = this.mWall.m_vEnd.x;
 		let originalEndY = this.mWall.m_vEnd.y;
 
-		// Update main wall
+		// Update main wall while preserving start point
 		this.mWall.m_vEnd.x = this.mWall.m_vStart.x + mainWallDir.x * newLength;
 		this.mWall.m_vEnd.y = this.mWall.m_vStart.y + mainWallDir.y * newLength;
 
