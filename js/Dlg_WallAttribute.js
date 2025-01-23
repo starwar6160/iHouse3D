@@ -215,72 +215,56 @@ function Dlg_WallAttribute()
    };
 
 	this.findOppositeWall = function(wall) {
-		if (!wall) return null;
+		if (wall == null)
+			return null;
+
+		// Get wall direction
+		let dx = wall.m_vEnd.x - wall.m_vStart.x;
+		let dy = wall.m_vEnd.y - wall.m_vStart.y;
+		let length = Math.sqrt(dx * dx + dy * dy);
 		
-		// Get wall vector
-		let wallVec = {
-			x: wall.m_vEnd.x - wall.m_vStart.x,
-			y: wall.m_vEnd.y - wall.m_vStart.y
+		if (length < 0.0001) return null;
+
+		let dir = {
+			x: dx / length,
+			y: dy / length
 		};
-		let wallLength = Math.sqrt(wallVec.x * wallVec.x + wallVec.y * wallVec.y);
-		
-		// Normalize wall vector
-		wallVec.x /= wallLength;
-		wallVec.y /= wallLength;
-		
-		// Wall center point
-		let wallCenter = {
-			x: (wall.m_vStart.x + wall.m_vEnd.x) / 2,
-			y: (wall.m_vStart.y + wall.m_vEnd.y) / 2
-		};
-		
+
+		// Find parallel wall with opposite direction
 		let oppositeWall = null;
-		let minDistance = Number.MAX_VALUE;
-		
-		// Search through all walls
+		let minDist = Number.MAX_VALUE;
+
 		for (let i = 0; i < mHouseClass.mWallClass.mWallArray.length; i++) {
 			let testWall = mHouseClass.mWallClass.mWallArray[i];
 			if (testWall === wall) continue;
+
+			let tdx = testWall.m_vEnd.x - testWall.m_vStart.x;
+			let tdy = testWall.m_vEnd.y - testWall.m_vStart.y;
+			let tLength = Math.sqrt(tdx * tdx + tdy * tdy);
 			
-			// Get test wall vector
-			let testVec = {
-				x: testWall.m_vEnd.x - testWall.m_vStart.x,
-				y: testWall.m_vEnd.y - testWall.m_vStart.y
+			if (tLength < 0.0001) continue;
+
+			let testDir = {
+				x: tdx / tLength,
+				y: tdy / tLength
 			};
-			let testLength = Math.sqrt(testVec.x * testVec.x + testVec.y * testVec.y);
-			
-			// Normalize test vector
-			testVec.x /= testLength;
-			testVec.y /= testLength;
-			
-			// Test wall center point
-			let testCenter = {
-				x: (testWall.m_vStart.x + testWall.m_vEnd.x) / 2,
-				y: (testWall.m_vStart.y + testWall.m_vEnd.y) / 2
-			};
-			
-			// Check if walls are parallel (dot product close to -1 or 1)
-			let dot = wallVec.x * testVec.x + wallVec.y * testVec.y;
-			if (Math.abs(Math.abs(dot) - 1) < 0.1) {
-				// Calculate perpendicular distance between walls
-				let dx = testCenter.x - wallCenter.x;
-				let dy = testCenter.y - wallCenter.y;
-				// Project displacement onto perpendicular direction
-				let perpX = -wallVec.y;  // Perpendicular vector
-				let perpY = wallVec.x;
-				let perpDist = Math.abs(dx * perpX + dy * perpY);
-				
-				// Check if walls are roughly aligned
-				let parallelDist = Math.abs(dx * wallVec.x + dy * wallVec.y);
-				if (parallelDist < wallLength * 0.5) {  // Walls should be somewhat aligned
-					if (perpDist < minDistance && perpDist > 0.1) {
-						minDistance = perpDist;
-						oppositeWall = testWall;
-					}
+
+			// Check if parallel (dot product close to 1 or -1)
+			let dotProduct = Math.abs(dir.x * testDir.x + dir.y * testDir.y);
+			if (dotProduct > 0.9) {
+				// Calculate average distance between walls
+				let dist = Math.abs(
+					(testWall.m_vStart.y - wall.m_vStart.y) * dir.x -
+					(testWall.m_vStart.x - wall.m_vStart.x) * dir.y
+				);
+
+				if (dist < minDist) {
+					minDist = dist;
+					oppositeWall = testWall;
 				}
 			}
 		}
-		
+
 		return oppositeWall;
 	};
 
@@ -288,31 +272,44 @@ function Dlg_WallAttribute()
 		if (this.mWall == null)
 			return;
 
+		console.log("=== Starting wall length modification ===");
+		console.log("Selected wall start point:", {
+			x: this.mWall.m_vStart.x,
+			y: this.mWall.m_vStart.y
+		});
+		console.log("Selected wall end point:", {
+			x: this.mWall.m_vEnd.x,
+			y: this.mWall.m_vEnd.y
+		});
+
 		// Input validation
 		let inputLength = Number(int);
 		if (!inputLength || inputLength <= 0) {
-			inputLength = 1;  // Minimum 1mm
+			inputLength = 1;
 			app.attributeInterface.wall.length.int = inputLength;
 			mHouseClass.mLanguage.ShowMessageBox("墙长度不能小于1mm，已自动调整为1mm");
 		} else if (inputLength >= 90000) {
-			inputLength = 89999;  // Maximum 89999mm
+			inputLength = 89999;
 			app.attributeInterface.wall.length.int = inputLength;
 			mHouseClass.mLanguage.ShowMessageBox("墙长度不能大于89999mm，已自动调整为89999mm");
 		}
 
-		// Get current wall vector
+		// Get current wall vector and direction
 		let dx = this.mWall.m_vEnd.x - this.mWall.m_vStart.x;
 		let dy = this.mWall.m_vEnd.y - this.mWall.m_vStart.y;
 		let currentLength = Math.sqrt(dx * dx + dy * dy);
 		
+		console.log("Current wall length:", currentLength);
+		console.log("Target length (internal units):", inputLength / 10);
+
 		// Prevent division by zero
 		if (currentLength < 0.0001) {
 			currentLength = 0.0001;
 		}
 
-		// Calculate scale factor
+		// Calculate new length and change
 		let newLength = inputLength / 10; // Convert from mm to internal units
-		let scale = newLength / currentLength;
+		let lengthChange = newLength - currentLength;
 
 		// Get main wall direction (normalized)
 		let mainWallDir = {
@@ -320,61 +317,237 @@ function Dlg_WallAttribute()
 			y: dy / currentLength
 		};
 
+		console.log("Main wall direction:", mainWallDir);
+		console.log("Length change:", lengthChange);
+
+		// Store original end point before updating
+		let originalEndX = this.mWall.m_vEnd.x;
+		let originalEndY = this.mWall.m_vEnd.y;
+
 		// Update main wall
-		this.mWall.m_vEnd.x = this.mWall.m_vStart.x + dx * scale;
-		this.mWall.m_vEnd.y = this.mWall.m_vStart.y + dy * scale;
+		this.mWall.m_vEnd.x = this.mWall.m_vStart.x + mainWallDir.x * newLength;
+		this.mWall.m_vEnd.y = this.mWall.m_vStart.y + mainWallDir.y * newLength;
+
+		console.log("Updated main wall end point:", {
+			x: this.mWall.m_vEnd.x,
+			y: this.mWall.m_vEnd.y
+		});
+
 		this.mWall.OnRender();
+
+		// Calculate the actual movement vector
+		let moveVec = {
+			x: this.mWall.m_vEnd.x - originalEndX,
+			y: this.mWall.m_vEnd.y - originalEndY
+		};
+
+		console.log("Movement vector:", moveVec);
 
 		// Find and update opposite wall
 		let oppositeWall = this.findOppositeWall(this.mWall);
 		if (oppositeWall) {
-			// Get opposite wall vector
+			console.log("=== Found opposite wall ===");
+			console.log("Opposite wall start:", {
+				x: oppositeWall.m_vStart.x,
+				y: oppositeWall.m_vStart.y
+			});
+			console.log("Opposite wall end:", {
+				x: oppositeWall.m_vEnd.x,
+				y: oppositeWall.m_vEnd.y
+			});
+
+			// Determine if this wall is horizontal or vertical
+			let isHorizontal = Math.abs(mainWallDir.x) > Math.abs(mainWallDir.y);
+
+			// Calculate opposite wall direction
 			let odx = oppositeWall.m_vEnd.x - oppositeWall.m_vStart.x;
 			let ody = oppositeWall.m_vEnd.y - oppositeWall.m_vStart.y;
-			let oCurrentLength = Math.sqrt(odx * odx + ody * ody);
-			
-			// Prevent division by zero
-			if (oCurrentLength < 0.0001) {
-				oCurrentLength = 0.0001;
-			}
-
-			// Get opposite wall direction (normalized)
-			let oppositeWallDir = {
-				x: odx / oCurrentLength,
-				y: ody / oCurrentLength
+			let oLength = Math.sqrt(odx * odx + ody * ody);
+			let oppositeDir = {
+				x: odx / oLength,
+				y: ody / oLength
 			};
 
-			// Check if walls are pointing in the same direction (dot product > 0)
-			let dot = mainWallDir.x * oppositeWallDir.x + mainWallDir.y * oppositeWallDir.y;
-			
-			// If walls are pointing in opposite directions, flip the opposite wall's start/end
-			if (dot < 0) {
-				// Swap start and end points
-				let tempX = oppositeWall.m_vStart.x;
-				let tempY = oppositeWall.m_vStart.y;
-				oppositeWall.m_vStart.x = oppositeWall.m_vEnd.x;
-				oppositeWall.m_vStart.y = oppositeWall.m_vEnd.y;
-				oppositeWall.m_vEnd.x = tempX;
-				oppositeWall.m_vEnd.y = tempY;
-				
-				// Recalculate vectors after swap
-				odx = oppositeWall.m_vEnd.x - oppositeWall.m_vStart.x;
-				ody = oppositeWall.m_vEnd.y - oppositeWall.m_vStart.y;
-				oCurrentLength = Math.sqrt(odx * odx + ody * ody);
+			// Store original opposite wall points
+			let originalOppositeStartX = oppositeWall.m_vStart.x;
+			let originalOppositeStartY = oppositeWall.m_vStart.y;
+			let originalOppositeEndX = oppositeWall.m_vEnd.x;
+			let originalOppositeEndY = oppositeWall.m_vEnd.y;
+
+			// For opposite wall, we want to:
+			// 1. Keep its start point fixed on the left/top
+			// 2. Extend it to match the main wall's new length
+			// 3. Maintain the same direction as the main wall
+			if (isHorizontal) {
+				// For horizontal walls:
+				// - Left point should stay fixed
+				// - Right point should extend/shrink to match new length
+				let leftPoint = originalOppositeStartX <= originalOppositeEndX ? originalOppositeStartX : originalOppositeEndX;
+				oppositeWall.m_vStart.x = leftPoint;
+				oppositeWall.m_vEnd.x = leftPoint + newLength;
+			} else {
+				// For vertical walls:
+				// - Top point should stay fixed
+				// - Bottom point should extend/shrink to match new length
+				let topPoint = originalOppositeStartY <= originalOppositeEndY ? originalOppositeStartY : originalOppositeEndY;
+				oppositeWall.m_vStart.y = topPoint;
+				oppositeWall.m_vEnd.y = topPoint + newLength;
 			}
 
-			// Update opposite wall to match new length
-			let oScale = newLength / oCurrentLength;
-			oppositeWall.m_vEnd.x = oppositeWall.m_vStart.x + odx * oScale;
-			oppositeWall.m_vEnd.y = oppositeWall.m_vStart.y + ody * oScale;
+			console.log("Updated opposite wall end point:", {
+				x: oppositeWall.m_vEnd.x,
+				y: oppositeWall.m_vEnd.y
+			});
+
 			oppositeWall.OnRender();
+
+			// Find perpendicular walls
+			const PERPENDICULAR_THRESHOLD = 0.2;
+			const ENDPOINT_THRESHOLD = 20;
+			const WALL_THICKNESS = 20;
+
+			console.log("=== Looking for perpendicular walls ===");
+			console.log("Perpendicular threshold:", PERPENDICULAR_THRESHOLD);
+			console.log("Endpoint connection threshold:", ENDPOINT_THRESHOLD);
+
+			// Store all walls for reference
+			let allWalls = mHouseClass.mWallClass.mWallArray;
+			console.log("Total walls in scene:", allWalls.length);
+
+			let perpendicularWalls = [];
+			let wallIndex = 0;
+
+			for (let wall of allWalls) {
+				if (wall === this.mWall || wall === oppositeWall) continue;
+
+				console.log(`\nChecking wall ${wallIndex++}:`);
+				console.log("Wall start:", {
+					x: wall.m_vStart.x,
+					y: wall.m_vStart.y
+				});
+				console.log("Wall end:", {
+					x: wall.m_vEnd.x,
+					y: wall.m_vEnd.y
+				});
+
+				// Calculate wall direction
+				let wallDx = wall.m_vEnd.x - wall.m_vStart.x;
+				let wallDy = wall.m_vEnd.y - wall.m_vStart.y;
+				let wallLength = Math.sqrt(wallDx * wallDx + wallDy * wallDy);
+				
+				if (wallLength < 0.0001) {
+					console.log("Wall too short, skipping");
+					continue;
+				}
+
+				let wallDir = {
+					x: wallDx / wallLength,
+					y: wallDy / wallLength
+				};
+
+				console.log("Wall direction:", wallDir);
+
+				// Check if wall is perpendicular (dot product close to 0)
+				let dotProduct = Math.abs(mainWallDir.x * wallDir.x + mainWallDir.y * wallDir.y);
+				console.log("Wall dot product:", dotProduct);
+
+				if (dotProduct < PERPENDICULAR_THRESHOLD) {
+					// Check if this wall connects to either the main wall or opposite wall
+					let halfThickness = WALL_THICKNESS / 2;
+
+					let distToMainStart = Math.min(
+						Math.sqrt(Math.pow(wall.m_vStart.x - (this.mWall.m_vStart.x - halfThickness), 2) + 
+								Math.pow(wall.m_vStart.y - (this.mWall.m_vStart.y - halfThickness), 2)),
+						Math.sqrt(Math.pow(wall.m_vEnd.x - (this.mWall.m_vStart.x - halfThickness), 2) + 
+								Math.pow(wall.m_vEnd.y - (this.mWall.m_vStart.y - halfThickness), 2))
+					);
+
+					let distToMainEnd = Math.min(
+						Math.sqrt(Math.pow(wall.m_vStart.x - (originalEndX + halfThickness), 2) + 
+								Math.pow(wall.m_vStart.y - (originalEndY + halfThickness), 2)),
+						Math.sqrt(Math.pow(wall.m_vEnd.x - (originalEndX + halfThickness), 2) + 
+								Math.pow(wall.m_vEnd.y - (originalEndY + halfThickness), 2))
+					);
+
+					let connectsToMainStart = distToMainStart < ENDPOINT_THRESHOLD;
+					let connectsToMainEnd = distToMainEnd < ENDPOINT_THRESHOLD;
+
+					// Check if this wall is on the right side (for horizontal walls) or bottom (for vertical walls)
+					let isRightOrBottom = false;
+					if (isHorizontal) {
+						// For horizontal walls, check if the wall is connected to the right end
+						isRightOrBottom = connectsToMainEnd && wall.m_vStart.x >= (originalEndX - halfThickness);
+					} else {
+						// For vertical walls, check if the wall is connected to the bottom end
+						isRightOrBottom = connectsToMainEnd && wall.m_vStart.y >= (originalEndY - halfThickness);
+					}
+
+					console.log("Wall position:", {
+						connectsToMainStart,
+						connectsToMainEnd,
+						isRightOrBottom,
+						distToMainStart,
+						distToMainEnd
+					});
+
+					if (connectsToMainEnd) {
+						perpendicularWalls.push({
+							wall,
+							connectsToMainStart,
+							connectsToMainEnd,
+							isRightOrBottom,
+							distToMainStart,
+							distToMainEnd
+						});
+					}
+				}
+			}
+
+			console.log("\nNumber of perpendicular walls found:", perpendicularWalls.length);
+
+			// Process perpendicular walls
+			perpendicularWalls.forEach((wallData, index) => {
+				console.log(`\n=== Processing perpendicular wall ${index} ===`);
+				let wall = wallData.wall;
+
+				// Move the wall if it's on the right/bottom side
+				let shouldMove = wallData.isRightOrBottom;
+
+				console.log("Wall movement decision:", {
+					shouldMove,
+					moveAmount: moveVec
+				});
+
+				if (shouldMove) {
+					console.log("Moving wall - Before:", {
+						start: { x: wall.m_vStart.x, y: wall.m_vStart.y },
+						end: { x: wall.m_vEnd.x, y: wall.m_vEnd.y }
+					});
+
+					// Move both points of the wall to maintain its direction
+					if (isHorizontal) {
+						wall.m_vStart.x += moveVec.x;
+						wall.m_vEnd.x += moveVec.x;
+					} else {
+						wall.m_vStart.y += moveVec.y;
+						wall.m_vEnd.y += moveVec.y;
+					}
+
+					console.log("Moving wall - After:", {
+						start: { x: wall.m_vStart.x, y: wall.m_vStart.y },
+						end: { x: wall.m_vEnd.x, y: wall.m_vEnd.y }
+					});
+
+					wall.OnRender();
+				}
+			});
 		}
 
 		// Update scene and trigger wall updates
 		render();
 		mHouseClass.mWallClass.OnUpdateAllWall();
 	};
-
+	
 	this.OnSplit = function()
 	{
 		if(this.mWall ==null)
